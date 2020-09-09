@@ -176,6 +176,17 @@ class MobilePayPaymentAdmin(admin.ModelAdmin):
     list_display = ('transactionid','datetime','amount','comment','member','approver', 'deleted')
     actions = ['approve']
 
+    def approve(self, request, queryset):
+        queryset.update(approver='jens lyn')
+
+    approve.short_description = 'Marker valgte som godkendt'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request):
+        return False
+
 class MemberForm(forms.ModelForm):
     class Meta:
         model = Member
