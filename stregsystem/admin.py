@@ -11,7 +11,8 @@ from stregsystem.models import (
     PayTransaction,
     Product,
     Room,
-    Sale
+    Sale,
+    MobilePayPayment
 )
 from stregsystem.utils import (
     make_active_productlist_query,
@@ -162,6 +163,18 @@ class CategoryAdmin(admin.ModelAdmin):
     def items_in_category(self, obj):
         return obj.product_set.count()
 
+class MobilePayForm(forms.ModelForm):
+    class Meta:
+        model = MobilePayPayment
+        exclude = []
+    actions = ['approve']
+
+class MobilePayPaymentAdmin(admin.ModelAdmin):
+    form = MobilePayForm
+    list_filter = ('deleted', 'approver')
+    search_fields = ('transactionid', 'amount', 'comment', 'member')
+    list_display = ('transactionid','datetime','amount','comment','member','approver', 'deleted')
+    actions = ['approve']
 
 class MemberForm(forms.ModelForm):
     class Meta:
@@ -251,3 +264,4 @@ admin.site.register(News)
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(Room)
+admin.site.register(MobilePayPayment, MobilePayPaymentAdmin)

@@ -87,6 +87,45 @@
     }
   },
   {
+    "model": "stregsystem.mobilepaypayment",
+    "pk": 1,
+    "fields": {
+      "transactionid": "5E321032",
+      "datetime": "2020-09-09T10:43:22.021+00:00",
+      "amount": 201.00,
+      "comment": "tester",
+      "member": "tester",
+      "approver": "",
+      "deleted": true
+    }
+  },
+  {
+    "model": "stregsystem.mobilepaypayment",
+    "pk": 2,
+    "fields": {
+      "transactionid": "64325FDE",
+      "datetime": "2020-09-09T10:53:22.021+00:00",
+      "amount": 230.00,
+      "comment": "tester",
+      "member": "tester",
+      "approver": "tester",
+      "deleted": false
+    }
+  },
+  {
+    "model": "stregsystem.mobilepaypayment",
+    "pk": 3,
+    "fields": {
+      "transactionid": "E343DAEC",
+      "datetime": "2020-09-09T11:43:22.021+00:00",
+      "amount": 200.00,
+      "comment": "tester",
+      "member": "tester",
+      "approver": "",
+      "deleted": false
+    }
+  },
+  {
     "model": "stregsystem.room",
     "pk": 1,
     "fields": {

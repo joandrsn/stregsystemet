@@ -276,6 +276,29 @@ class Member(models.Model):  # id automatisk...
 
         return bac
 
+class MobilePayPayment(models.Model):
+    class Meta:
+        permissions = (
+            ("import_batch_payments", "Import batch payments"),
+        )
+    transactionid = models.CharField(max_length=80)
+    datetime = models.DateTimeField()
+    amount = models.DecimalField(decimal_places=2, max_digits=6)
+    comment = models.CharField(max_length=80)
+    member = models.CharField(max_length=80)
+    approver = models.CharField(max_length=80)
+    deleted = models.BooleanField()
+
+
+    def __unicode__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return self.transactionid
+
+    class Meta:
+        verbose_name_plural = 'MobilePay Payments'
+
 
 class Payment(models.Model):  # id automatisk...
     class Meta:
