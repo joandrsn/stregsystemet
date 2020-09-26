@@ -1,0 +1,172 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}MobilePay Approval{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="../">Hjem</a></div>{% endblock %}
+
+{% block extrahead %}
+{{ formset.media.css }}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link rel="stylesheet" type="text/css" href="{% static '/stregsystem/batch.css' %}" />
+<script defer src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+{% endblock %}
+
+{% block content %}
+{% load admin_static %}
+<h1>MobilePay Approval</h1>
+<div id="content-main">
+  {% csrf_token %}
+  {% if mobilepaypayments %}
+  <table>
+    <thead>
+      <tr>
+        <th>MobilePay Transaction ID</th>
+        <th>Date/time</th>
+        <th>Amount</th>
+        <th>Comment</th>
+        <th>Fember</th>
+        <th colspan="2">Action</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mobilepaypayment in mobilepaypayments %}
+      <tr id="paymentid{{mobilepaypayment.id}}">
+        <td>{{mobilepaypayment.transactionid}}</td>
+        <td>{{mobilepaypayment.datetime|date:'Y-m-d H:i'}}</td>
+        <td>{{mobilepaypayment.amount}}</td>
+        <td>{{mobilepaypayment.comment}}</td>
+        <td>
+          <input id="fember" type="text" value="{{mobilepaypayment.member.username|default:""}}" />
+        </td>
+        <td>
+          <button id="approvebtn" onclick="approve(this, {{mobilepaypayment.id}})">Approve</button>
+        </td>
+        <td>
+          <button id="ignorebtn" onclick="ignore(this, {{mobilepaypayment.id}})">Ignore</button>
+        </td>
+        <td><img id="status" src="/static/admin/img/icon-unknown.svg"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nothing to approve</p>
+  {% endif %}
+</div>
+
+<script src="{% static "stregsystem/jquery.formset.js" %}"></script>
+<script src="{{ select2_js }}"></script>
+<link rel="stylesheet" type="text/css" href="{{ select2_css }}" />
+
+<script type="text/javascript">
+  $(function () {
+    $('#paymentform tbody tr').formset({
+      formTemplate: $("#formTemplate"),
+      deleteText: '<i title="delete" class="fas fa-trash"></i>',
+      added: function (row) {
+        $(document).on('focus', '.select2-selection.select2-selection--single', function (event) {
+          $(this).parents('.select2-container').prev().select2('open');
+        });
+        row.find('.select2').select2({
+          width: "100%",
+        });
+      },
+    });
+  })
+
+  function sendAction(parentelement, id, fember, type) {
+    var endpoint = '';
+    switch (type) {
+      case 'approve':
+        endpoint = './approve';
+        break;
+      case 'ignore':
+        endpoint = './ignore';
+        break;
+    }
+    var csrftoken = $("[name=csrfmiddlewaretoken]").val();
+    $.ajax({
+      url: endpoint,
+      method: 'POST',
+      headers: {
+        "X-CSRFToken": csrftoken
+      },
+      data: {
+        "id": id,
+        "fember": fember
+      },
+      success: function (data) {
+        console.log("Success!");
+        setRowIcon(parentelement, type)
+        disableButtons(parentelement, type)
+      },
+      error: function (err) {
+        setRowIcon(parentelement, 'error')
+
+      }
+
+    });
+  }
+
+  function disableButtons(parentElement, status) {
+    var hidebtn = '';
+    var disablebtn = '';
+    var ignorebtnid = '#ignorebtn';
+    var approvebtnid = '#approvebtn';
+    var femberinputid = '#fember';
+    switch (status) {
+      case 'approve':
+        hidebtn = ignorebtnid;
+        disablebtn = approvebtnid;
+        break;
+      case 'ignore':
+        hidebtn = approvebtnid;
+        disablebtn = ignorebtnid;
+        break;
+
+      default:
+        return;
+        break;
+    }
+
+    parentElement.querySelector(hidebtn).style.visibility = 'hidden';
+    parentElement.querySelector(disablebtn).disabled = true;
+    parentElement.querySelector(femberinputid).disabled = true;
+  }
+
+  function setRowIcon(element, status) {
+    var nextIcon = 'icon-unknown';
+    switch (status) {
+      case 'approve':
+        nextIcon = 'icon-yes';
+        break;
+      case 'ignore':
+        nextIcon = 'icon-yes';
+        break;
+      case 'error':
+        nextIcon = 'icon-alert';
+        break;
+    }
+    var statusimg = element.querySelector('#status');
+    statusimg.src = statusimg.src.replace(/[\w-]+(.svg)$/, nextIcon + '$1');
+  }
+
+  function approve(element, id) {
+    var rowelement = element.parentElement.parentElement;
+    var fember = rowelement.querySelector('#fember');
+    sendAction(rowelement, id, fember.value, 'approve');
+  }
+
+  function ignore(element, id) {
+    if (window.confirm('Are you sure that you want to ignore the mobilepay payment of X amount?')) {
+      var rowelement = element.parentElement.parentElement;
+      sendAction(rowelement, id, null, 'ignore');
+    }
+  }
+
+</script>
+
+{{ formset.media.js }}
+{% endblock %}
