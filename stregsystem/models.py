@@ -5,12 +5,12 @@ from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 
 from stregsystem.deprecated import deprecated
 from stregsystem.templatetags.stregsystem_extras import money
-from stregsystem.utils import date_to_midnight, make_approved_mobilepayment_query, make_ignored_mobilepayment_query
+from stregsystem.utils import date_to_midnight, make_processed_mobilepayment_query
 from stregsystem.utils import send_payment_mail
 
 
@@ -185,9 +185,7 @@ class Member(models.Model):  # id automatisk...
         return self.__str__()
 
     def __str__(self):
-        return active_str(
-            self.active) + " " + self.username + ": " + self.firstname + " " + self.lastname + " | " + self.email + " (" + money(
-            self.balance) + ")"
+        return active_str(self.active) + " " + self.username + ": " + self.firstname + " " + self.lastname + " | " + self.email + " (" + money(self.balance) + ")"
 
     # XXX - virker ikke
     #    def get_absolute_url(self):
@@ -255,9 +253,9 @@ class Member(models.Model):  # id automatisk...
 
         alcohol_sales = (
             self.sale_set
-                .filter(timestamp__gt=calculation_start,
-                        product__alcohol_content_ml__gt=0.0)
-                .order_by('timestamp')
+            .filter(timestamp__gt=calculation_start,
+                    product__alcohol_content_ml__gt=0.0)
+            .order_by('timestamp')
         )
         alcohol_timeline = [(s.timestamp, s.product.alcohol_content_ml)
                             for s in alcohol_sales]
@@ -361,16 +359,22 @@ class MobilePayment(models.Model):
     @staticmethod
     @transaction.atomic
     def submit_processed_mobile_payments(admin_user: User):
-        # TODO: could be merged into one query and handling of those instead of duplicating code
-        for approved_payment in make_approved_mobilepayment_query():
-            # create payment for transaction, assign payment to mobile payment and save both
-            # note that key to payment is not available when chaining a save call, hence this structure
-            payment = Payment(
-                member=approved_payment.member if approved_payment.member else approved_payment.member_guess,
-                amount=approved_payment.amount)
+        processed_payment: MobilePayment  # annotate iterated variable (PEP 526)
+        for processed_payment in make_processed_mobilepayment_query():
+
+            if processed_payment.status == MobilePayment.APPROVED:
+                payment = Payment(
+                    member=processed_payment.member if processed_payment.member else processed_payment.member_guess,
+                    amount=processed_payment.amount)
+            elif processed_payment.status == MobilePayment.IGNORED:
+                payment = Payment(member=processed_payment.member, amount=0)
+            else:
+                raise RuntimeError("Trying to process MobilePayment not of status (APPROVED, IGNORED)")
+
+            # Save payment and foreign key to MobilePayment field
             payment.save()
-            approved_payment.payment = payment
-            approved_payment.save()
+            processed_payment.payment = payment
+            processed_payment.save()
 
             LogEntry.objects.log_action(
                 user_id=admin_user.pk,
@@ -378,24 +382,8 @@ class MobilePayment(models.Model):
                 object_id=payment.id,
                 object_repr=str(payment),
                 action_flag=ADDITION,
-                change_message=f"MobilePayment (transaction_id: {approved_payment.transaction_id})"
-            )
-
-        for ignored_payment in make_ignored_mobilepayment_query():
-            # create payment for ignored transaction by creating zero-amount payment
-            payment = Payment(member=ignored_payment.member, amount=0)
-            payment.save()
-            ignored_payment.approved_by_admin = admin_user
-            ignored_payment.payment = payment
-            ignored_payment.save()
-
-            LogEntry.objects.log_action(
-                user_id=admin_user.pk,
-                content_type_id=ContentType.objects.get_for_model(Payment).pk,
-                object_id=payment.id,
-                object_repr=str(payment),
-                action_flag=ADDITION,
-                change_message=f"Ignored MobilePayment (transaction_id: {ignored_payment.transaction_id})"
+                change_message=f"{'Ignored' if processed_payment.status == MobilePayment.IGNORED else ''}"
+                               f"MobilePayment (transaction_id: {processed_payment.transaction_id})"
             )
 
 
@@ -425,7 +413,7 @@ class Room(models.Model):
         return self.name
 
 
-class Product(models.Model):  # id automatisk...
+class Product(models.Model): # id automatisk...
     name = models.CharField(max_length=64)
     price = models.IntegerField()  # penge, oere...
     active = models.BooleanField()
@@ -463,8 +451,8 @@ class Product(models.Model):  # id automatisk...
             return 0
         return (
             self.sale_set
-                .filter(timestamp__gt=date_to_midnight(self.start_date))
-                .aggregate(bought=Count("id"))["bought"])
+            .filter(timestamp__gt=date_to_midnight(self.start_date))
+            .aggregate(bought=Count("id"))["bought"])
 
     def is_active(self):
         expired = (self.deactivate_date is not None
