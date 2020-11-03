@@ -67,10 +67,8 @@ class Command(BaseCommand):
         response.raise_for_status()
         json_response = response.json()
         # Calculate when the token expires
-        expiretime = datetime.now() + \
-            timedelta(seconds=json_response['expires_in'] - 1)
-        self.tokens['access_token_timeout'] = expiretime.isoformat(
-            timespec='milliseconds')
+        expiretime = datetime.now() + timedelta(seconds=json_response['expires_in'] - 1)
+        self.tokens['access_token_timeout'] = expiretime.isoformat(timespec='milliseconds')
         self.tokens['access_token'] = json_response['access_token']
         self.update_token_storage()
 
@@ -99,8 +97,7 @@ class Command(BaseCommand):
     # Client side check if the token has expired.
     def refresh_expired_token(self):
         self.read_token_storage()
-        expiretime = datetime.fromisoformat(
-            self.tokens['access_token_timeout'])
+        expiretime = datetime.fromisoformat(self.tokens['access_token_timeout'])
         if datetime.now() >= expiretime:
             self.refresh_access_token()
 
@@ -110,8 +107,7 @@ class Command(BaseCommand):
             self.refresh_expired_token()
             return self.get_transactions()
         except:
-            self.write_error(
-                f'Got an error when trying to fetch transactions.')
+            self.write_error(f'Got an error when trying to fetch transactions.')
             pass
 
     def import_mobilepay_payments(self):
@@ -132,20 +128,17 @@ class Command(BaseCommand):
         trans_id = transaction['paymentTransactionId']
 
         if MobilePayment.objects.filter(transaction_id=trans_id).exists():
-            self.write_debug(
-                f'Skipping transaction since it already exists (Transaction ID: {trans_id})')
+            self.write_debug(f'Skipping transaction since it already exists (Transaction ID: {trans_id})')
             return
 
         currencyCode = transaction['currencyCode']
         if currencyCode != 'DKK':
-            self.write_warning(
-                f'Does ONLY support DKK (Transaction ID: {trans_id}), was {currencyCode}')
+            self.write_warning(f'Does ONLY support DKK (Transaction ID: {trans_id}), was {currencyCode}')
             return
 
         amount = transaction['amount']
         if amount < 50:
-            self.write_warning(
-                f'Only importing more than 50 DKK (Transaction ID: {trans_id}), was {amount})')
+            self.write_warning(f'Only importing more than 50 DKK (Transaction ID: {trans_id}), was {amount})')
             return
 
         amount_converted = amount * 100
@@ -157,14 +150,12 @@ class Command(BaseCommand):
 
         payment_datetime = parse_datetime(transaction['timestamp'])
 
-        MobilePayment.objects.create(
-            amount=amount_converted,
-            member=guessed_fember,
-            comment=comment,
-            timestamp=payment_datetime,
-            transaction_id=trans_id,
-            status=MobilePayment.UNSET
-        )
+        MobilePayment.objects.create(amount=amount_converted,
+                                     member=guessed_fember,
+                                     comment=comment,
+                                     timestamp=payment_datetime,
+                                     transaction_id=trans_id,
+                                     status=MobilePayment.UNSET
+                                     )
 
-        self.write_info(
-            f'Imported transaction id: {trans_id} for amount: {amount}')
+        self.write_info(f'Imported transaction id: {trans_id} for amount: {amount}')
