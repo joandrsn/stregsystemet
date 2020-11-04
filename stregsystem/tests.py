@@ -1075,7 +1075,7 @@ class MemberAdminTests(TestCase):
         response = self.client.post(reverse('admin:stregsystem_member_change', kwargs={'object_id':2}), model_to_dict(self.jeff2), follow=False)
 
         messages = list(get_messages(response.wsgi_request))
-        
+
         self.assertEqual(response.status_code, 302)
         self.assertEqual(2, len(messages))
         self.assertEqual(str(messages[0]), "Det brugernavn var allerede optaget")
@@ -1087,7 +1087,7 @@ class MemberAdminTests(TestCase):
         response = self.client.post(reverse('admin:stregsystem_member_change', kwargs={'object_id':2}), model_to_dict(self.jeff2), follow=False)
 
         messages = list(get_messages(response.wsgi_request))
-        
+
         self.assertEqual(response.status_code, 302)
         self.assertEqual(1, len(messages))
         self.assertEqual("mr_jefferson", Member.objects.filter(pk=2).get().username)
@@ -1528,6 +1528,18 @@ class MobilePaymentTests(TestCase):
         real_timestamp = datetime.datetime(2019, 11, 29, 12, 51, 8, tzinfo=pytz.UTC)
         self.assertLess((payment_timestamp - real_timestamp).seconds, 1)
 
+    def test_multiple_csv_submission(self):
+        # csv fixture contains six payments, ensure that setup created those
+        self.assertEqual(MobilePayment.objects.count(), 6)
+
+        # do import once again on same csv fixture
+        from stregsystem.utils import parse_csv_and_create_mobile_payments
+        with open(self.fixture_path, "r") as csv_file:
+            parse_csv_and_create_mobile_payments(csv_file.readlines())
+
+        # mobilepayment count should remain unchanged
+        self.assertEqual(MobilePayment.objects.count(), 6)
+
     def test_member_exact_matching(self):
         for matched_member in MobilePayment.objects.filter(member__isnull=False):
             self.assertEqual(matched_member.member, Member.objects.get(pk=matched_member.member.pk))
@@ -1545,7 +1557,8 @@ class MobilePaymentTests(TestCase):
 
         MobilePayment.submit_processed_mobile_payments(self.super_user)
 
-        self.assertEqual(Member.objects.get(username__exact="jdoe").balance, self.members["jdoe"]['balance'] + mobile_payment.amount)
+        self.assertEqual(Member.objects.get(username__exact="jdoe").balance,
+                         self.members["jdoe"]['balance'] + mobile_payment.amount)
 
     def test_ignored_payment_balance(self):
         # member balance unchanged
@@ -1566,7 +1579,7 @@ class MobilePaymentTests(TestCase):
         # member balance unchanged
         for member in self.members:
             self.assertEqual(Member.objects.get(username__exact=self.members[member]['username']).balance,
-                            self.members[member]['balance'])
+                             self.members[member]['balance'])
 
         # submit mobile payment
         self.client.login(username="superuser", password="hunter2")
@@ -1634,5 +1647,5 @@ class MobilePaymentTests(TestCase):
 
         MobilePayment.submit_processed_mobile_payments(self.super_user)
 
-        self.assertEqual(Member.objects.get(username__exact="mlarsen").balance, self.members["mlarsen"]['balance'] + mobile_payment.amount)
-
+        self.assertEqual(Member.objects.get(username__exact="mlarsen").balance,
+                         self.members["mlarsen"]['balance'] + mobile_payment.amount)
