@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.utils.dateparse import parse_datetime
 from pathlib import Path
 from stregsystem.models import MobilePayment, Member
@@ -97,7 +97,7 @@ class Command(BaseCommand):
     # Client side check if the token has expired.
     def refresh_expired_token(self):
         self.read_token_storage()
-        expiretime = datetime.fromisoformat(self.tokens['access_token_timeout'])
+        expiretime = parse_datetime(self.tokens['access_token_timeout'])
         if datetime.now() >= expiretime:
             self.refresh_access_token()
 
